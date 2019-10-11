@@ -1,5 +1,5 @@
-defmodule Chatty.Http.Websockets.Handler do
-  alias Chatty.Http.Websockets.Message
+defmodule HttpServer.Websockets.Handler do
+  alias HttpServer.Websockets.Message
   require Logger
   @behaviour :cowboy_websocket
   @timeout 60000

@@ -1,4 +1,4 @@
-defmodule Chatty.Http.Websockets.Message do
+defmodule HttpServer.Websockets.Message do
   defstruct [:to, :message]
   def parse(string, mode \\ :none)
 

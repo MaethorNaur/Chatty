@@ -1,4 +1,4 @@
-defmodule Chatty.Http.Router do
+defmodule HttpServer.Router do
   use Plug.Router
   use Plug.ErrorHandler
 
