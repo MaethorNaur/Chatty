@@ -1,4 +1,5 @@
 defmodule HttpServer.Websockets.Message do
+  @moduledoc false
   defstruct [:to, :message]
   def parse(string, mode \\ :none)
 

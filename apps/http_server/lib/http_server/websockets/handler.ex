@@ -1,8 +1,10 @@
 defmodule HttpServer.Websockets.Handler do
+  @moduledoc false
   alias HttpServer.Websockets.Message
   require Logger
   @behaviour :cowboy_websocket
-  @timeout 60000
+  @timeout 60_000
+
   def init(req, state),
     do: :cowboy_req.match_qs([:user], req) |> get_username() |> init(req, state)
 

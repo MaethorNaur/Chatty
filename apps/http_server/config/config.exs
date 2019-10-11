@@ -1,3 +1,3 @@
 import Config
-config :logger, :console,
-  metadata: [:user, :pid]
+config :logger, Ink,  name: "HttpServer"
+

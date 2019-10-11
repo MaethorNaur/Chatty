@@ -1,6 +1,7 @@
 defmodule HttpServer.Application do
+  @moduledoc false
   use Application
-  
+
   @routes [
     {"/ws", HttpServer.Websockets.Handler, []},
     {:_, Plug.Cowboy.Handler, {HttpServer.Router, []}}
@@ -16,9 +17,11 @@ defmodule HttpServer.Application do
           port: 4001
         ]
       )
-]
+    ]
+
     opts = [strategy: :one_for_one, name: HttpServer.Supervisor]
     Supervisor.start_link(children, opts)
   end
+
   defp dispatch_table, do: [{:_, @routes}]
 end
