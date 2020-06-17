@@ -1,0 +1,252 @@
+<html>
+  <head>
+    <title>HelloWorld Chatty</title>
+    <script src="/static/moment.js"></script>
+    <script src="/static/moment-timezone.js"></script>
+    <style>
+      .login {
+        display: block;
+      }
+      .chat {
+        display: none;
+        flex-direction: column;
+      }
+      .wrapper {
+        display: flex;
+        flex-direction: row;
+      }
+      .item {
+        border: 1px solid black;
+        margin: 5px;
+        height: 500px;
+        overflow-y: scroll;
+      }
+
+      .messages {
+        width: 90%;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .message {
+        border-bottom: 1px solid black;
+        margin: 5px;
+        display: flex;
+        flex-direction: column;
+      }
+      .row {
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+      .date {
+        font-weight: bold;
+        color: navy;
+      }
+
+      .from {
+        font-weight: bold;
+        color: green;
+      }
+      .to {
+        font-weight: bold;
+        color: red;
+      }
+
+      .rooms {
+        width: 10%;
+      }
+
+      .room {
+        margin: 10px;
+      }
+
+      .write {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        height: auto !important;
+      }
+
+      .write > textarea {
+        width: 100%;
+        height: 100px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="login">
+      <label for="userename">Pseudo</label>
+      <input type="text" id="username" />
+      <button>Login</button>
+    </div>
+    <div class="chat">
+      <div class="wrapper">
+        <div class="messages item"></div>
+        <div class="rooms item"></div>
+      </div>
+      <div class="wrapper">
+        <div class="write item">
+          <textarea name="write" id="write"></textarea>
+          <button id="send">Send</button>
+          <button id="logout">Logout</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const write = document.querySelector("#write");
+      const messages = document.querySelector(".messages");
+      const roomsElement = document.querySelector(".rooms");
+
+      let rooms = {};
+      moment.locale("fr");
+      const timezone = moment.tz.guess();
+
+      function websocket(username, open, close, message) {
+        let interval = null;
+        const host = `ws://${window.location.host}/ws?user=${username}`;
+        let socket = new WebSocket(host);
+
+        socket.addEventListener("open", function(event) {
+          interval = setInterval(() => socket.send("ping"), 10 * 1000);
+          open(socket);
+        });
+
+        socket.addEventListener("close", function(event) {
+          if (interval) {
+            clearInterval(interval);
+          }
+
+          close();
+        });
+
+        socket.addEventListener("error", function(event) {
+          alert("Invalid username");
+        });
+
+        socket.addEventListener("message", function(event) {
+          message(JSON.parse(event.data));
+        });
+      }
+
+      function add_message(data) {
+        let messageDiv = document.createElement("div");
+        messageDiv.classList.add("message");
+        messageDiv.innerHTML = `<div class="wrapper row">
+        <div class="date">${moment.tz(data.date, timezone).format("LLL")}</div>
+        <div class="from">${data.from}</div>
+        <div class="to">${data.to}</div>
+      </div>
+      <div class="wrapper"><div class="text">${data.message}</div></div>`;
+        messages.appendChild(messageDiv);
+      }
+
+      function add_joined(current_user, data) {
+        if (!rooms[data.room]) rooms[data.room] = [];
+        if (!rooms[data.room].find(user => user == data.user))
+          rooms[data.room].push(data.user);
+
+        let messageDiv = document.createElement("div");
+        messageDiv.classList.add("message");
+        messageDiv.innerHTML = `<div class="wrapper row">
+        <div class="date">${moment.tz(timezone).format("LLL")}</div>
+        <div class="from"><i>System</i></div>
+        <div class="to">${data.room}</div>
+      </div>
+      <div class="wrapper"><div class="text">Joined: ${data.user}</div></div>`;
+        messages.appendChild(messageDiv);
+
+        render_rooms(current_user);
+      }
+
+      function leave_room(current_user, data) {
+        if (data.room == "all") {
+          rooms = Object.entries(rooms).reduce((acc, [key, users]) => {
+            acc[key] = users.filter(user => user != data.user);
+            return acc;
+          }, {});
+        } else {
+          rooms[data.room] = rooms[data.room].filter(user => user != data.user);
+        }
+
+        let messageDiv = document.createElement("div");
+        messageDiv.classList.add("message");
+        messageDiv.innerHTML = `<div class="wrapper row">
+        <div class="date">${moment.tz(timezone).format("LLL")}</div>
+        <div class="from"><i>System</i></div>
+        <div class="to">${data.room}</div>
+      </div>
+          <div class="wrapper"><div class="text">Left: ${
+            data.user
+          }</div></div>`;
+        messages.appendChild(messageDiv);
+
+        render_rooms(current_user);
+      }
+
+      function list_all_users(current_user, data) {
+        rooms = data.rooms;
+        render_rooms(current_user);
+      }
+
+      function render_rooms(current_user) {
+        roomsElement.innerHTML = "";
+        Object.entries(rooms).forEach(([room, users]) => {
+          let roomDiv = document.createElement("div");
+          roomDiv.classList.add("room");
+          let usersList = users
+            .map(user => {
+              let userSelected = user;
+              if (user == current_user) {
+                userSelected = `<b>${user}</b>`;
+              }
+              return `<li>${userSelected}</li>`;
+            })
+            .join("");
+          roomDiv.innerHTML = `<div class="room">${room}</div><ul class="users">${usersList}</ul>`;
+          roomsElement.appendChild(roomDiv);
+        });
+      }
+
+      document.querySelector(".login button").onclick = () => {
+        websocket(
+          document.querySelector("#username").value,
+          socket => {
+            messages.innerHTML = "";
+            document.querySelector(".login").style.display = "none";
+            document.querySelector(".chat").style.display = "flex";
+            document.querySelector("#send").onclick = () => {
+              socket.send(JSON.stringify({ to: "all", message: write.value }));
+              write.value = "";
+            };
+            document.querySelector("#logout").onclick = () => {
+              socket.close();
+            };
+          },
+          () => {
+            document.querySelector(".chat").style.display = "none";
+            document.querySelector(".login").style.display = "block";
+          },
+          data => {
+            let current_user = document.querySelector("#username").value;
+            switch (data.type) {
+              case "join":
+                add_joined(current_user, data.data);
+                break;
+              case "left":
+                leave_room(current_user, data.data);
+                break;
+              case "list":
+                list_all_users(current_user, data.data);
+                break;
+              case "message":
+                add_message(data.data);
+                break;
+            }
+          }
+        );
+      };
+    </script>
+  </body>
+</html>
